@@ -207,8 +207,8 @@ end
 GRAPHICS-WINDOW
 207
 10
-667
-491
+668
+492
 5
 5
 41.0
@@ -542,41 +542,147 @@ NIL
 HORIZONTAL
 
 @#$#@#$#@
-## WHAT IS IT?
+# Forager Value Model
 
-(a general understanding of what the model is trying to show or explain)
+## Purpose
 
-## HOW IT WORKS
+This model was designed to explore the happiness of _minimally social foragers_ within a variable environment. Foragers track their happiness over time as they eat, drink, and socialize.
 
-(what rules the agents use to create the overall behavior of the model)
+## Entities, State Variables, and Scales
 
-## HOW TO USE IT
+### Patches
 
-(how to use the model, including a description of each of the items in the Interface tab)
+The patches make up a square, edge-wrapped, grid of 11x11 cells (the edge-wrapping therefore makes this world a torus). Patches can become _seeded_ in which case they get enough food to feed a forager. Patches can also be _water_ sources. A patch can have an unlimited number of foragers present at any given time.
 
-## THINGS TO NOTICE
+### Foragers
 
-(suggested things for the user to notice while running the model)
+Foragers are independent agents who have a location and a current task. You can control how foragers pick their tasks and which tasks are available using the on-off switches. Foragers can: _gather, eat, share, wander, walk-to, socialize, mate, and sit_.
 
-## THINGS TO TRY
+### Linked Foragers
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+Foragers who perform the socialize or mate tasks will become _linked_ to other foragers. When choosing a partner to socialize or mate with the foragers always prefer to choose a linked partner over a random partner.
 
-## EXTENDING THE MODEL
+### Time
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+The simulation is designed so that 100 ticks reflects approximately one week. The default values of variables reflect this fact.
 
-## NETLOGO FEATURES
+## Process overview and scheduling
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+Each tick of the simulation runs in four steps:
+ 1. Basics
+   i. Reduce the strength of links
+   ii. Age foragers
+   iii. Take 1 energy from all foragers (basic metabolism)
+   iiii. Kill foragers with energy <= 0
+ 2. Patches
+   i. Increase the food on seeded patches
+ 3. Foragers
+   i. Ask foragers to complete their current task
+ 4. Cleanup
+   i. Deal with visuals (e.g. patch color)
 
-## RELATED MODELS
+Time is _asynchronous_ and moves forward in _ticks_. Dealing with the order of tasks on one tick is non-trivial, because some tasks cause interactions between foragers (energy sharing, linking) which can affect their behavior on the same tick. The model currently implements the second option:
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+ 1. Run all tasks, then update all state variables at the end of the tick.
+ 2. Randomly order the foragers on each tick, then run tasks in order.
 
-## CREDITS AND REFERENCES
+## Design Concepts
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+### Basic Principles
+
+Foragers are a simplified example of an organism trying to solve the problem of _foresight_ in a complex and varying environment [1]. 
+
+### Adaptation: Hunger
+
+Foragers, like all organisms, rely on energy to survive and flourish. The simplest organisms imaginable use basic strategies to obtain and store energy and in this case foragers do as well. All foragers have a _hunger threshold_, below which they will try to gather food and eat their gathered food. When foragers are NOT hungry, they may still choose to engage in these activities (perhaps because they are pleasurable), but they may also choose to socialize, share, or mate, activities which they will not do when hungry.
+
+### Objectives
+
+NOT IMPLEMENTED
+
+### Learning
+
+Foragers do not learn over time. 
+
+### Prediction
+
+NOT IMPLEMENTED
+
+### Sensing and Error
+
+Foragers sense the world visually and with a certain amount of error, an attempt to replicate the difficulty of viewing the world we live in. Short of introducing full Bayesian statistics into each agent (a possibility to consider for the future), I chose to simply treat each "viewing" of the world as uniquer. Thus, on each view, agents receive a sample from a normal distribution with a true mean and a standard deviation which reflects their distance from the viewed object.
+
+> SD = Distance * __error-perc__
+
+Foragers existing in such a world would have eventually evolved a coping strategy, again, short of literally evolving this strategy, I chose to introduce a simplified version. Foragers simply have a _window of trust_ within which they linearly reduce the observed values for objects.
+
+> Trust Value = Error Value * ( 1 - Distance / __max-trust-dist__ )
+
+### Interaction
+
+### Stochasticity
+
+### Collectives
+
+### Observation
+
+Currently 
+
+## Initialization
+
+Pressing the __Reset__ button will set all patches to be un-seeded and kill all existing foragers. Pressing the __Seed Food__ button will seed __init-seed-count__ patches. Pressing the __Add Foragers__ button adds __forager-count__ foragers to the world in random locations, their initial eating threshold is set by the __default-thresh-eat__ variable. They will spawn with _100 energy_ and their initial task will be to _sit_.
+
+## Input Data
+
+The model does not use input. Eventually, the mimic the response of groups to external forcings it may be helpful to use input from real sources (such as food growth patterns in  desert, tropical, or temperate environments).
+
+## Submodels
+
+Each of the tasks which a forager can carry out is its own submodel, they are described in detail within this section.
+
+### Sit
+A sitting forager is _bored_ and will decide, on this tick, what task to do next.
+#### Hedonic/Eudaimonic Model
+(TODO: This isn't implemented)
+
+To decide what to do next I imagine that foragers are guided by two kinds of joy in their simple lives. Hedonic joy is defined as immediate pleasures, these include eating food, sharing food, and mating. Eudaimonic joys are longer-term pleasures, such as gathering food, wandering, walking-to somewhere, socializing, and sharing.
+
+Each forager has a ratio of hedonic to eudaimonic tasks, my first attempt will simply be to use 25:25. When foragers sit because they have nothing to do next, they will then choose what to do based on the balance of hedonic/eudaimonic tasks they have recently done. They only have a memory for the 50 previous tasks.
+
+There is a "random" task mode in which, unless they are hungry, foragers will simply choose randomly between tasks.
+#### Random Model
+Foragers choose randomly, with equal probability, from the available tasks (those that are _on_ in the switches).
+### Walk-To
+When a forager has an _aim_, they will move to the patch which minimizes their distance to their aim. They will continue this task until they arrive on the patch they are aiming at, at which point they _sit_. Moving has a cost: __move-cost__.
+### Wander
+Foragers wander by choosing a random patch to move to next. With probability __cont-wander-perc__ a forager will continue to _wander_, or _sit_.
+### Gather
+If there is food available on a patch the forager will collect __max-gather__ of it. If there is no food available they will aim at a visible patch with the highest food, subject to error (see _Design Concepts: Error_). If all patches are equal they choose randomly. If they are below eating threshold they then _eat_, otherwise they _sit_.
+### Eat
+If the forager has food on hand they will eat __max-eat__ of it, adding an equal amount of energy. If they have no food on hand they switch to _gather_. After eating they will _eat_ again if they are below eating threshold, otherwise they _sit_.
+### Share
+If the forager has surplus food they will pick a visible forager with the minimum food on hand and aim at them. If they are on the same patch, they will give them __share-amount__ food. After sharing foragers _sit_.
+### Socialize & Mate
+Both socializing and mating occur according to the same rules. Foragers first pick a random linked neighbor, or if un-linked, stranger, and either aim and walk to them or socialize/mate with them (if on the same patch). Socializing consists of creating a new link with strength __link-double__. If a link exists and has strength > link-double / 2, the strength doubles. Mating adds that the forager who initiated contact hatches a new offspring and gives them __mate-energy-transfer__ initial energy. Their eating threshold is picked from a normal distribution with mean of their parent and standard deviation __mutation-rate__. Socializing and mating have a cost: __soc-cost__ and __mate-cost__.
+
+# TODO List
+
+ - Foragers have no energy or food limits at the moment
+ - Add hedonic/eudaimonic stuff
+
+# Credits and References
+
+This model was implemented by Daniel Birman, according to the outline proposed in [1], using NetLogo [2]. The model descriptions follows the ODD (Overview, Design concepts, Details) protocol [3, 4].
+
+## References
+
+[1] Edelman, S. (2014). Explorations of happiness: proposed research. Personal Communication.
+
+[2] Grimm, V., Berger, U., Bastiansen, F., Eliassen, S., Ginot, V., Giske, J., ... & DeAngelis, D. L. (2006). A standard protocol for describing individual-based and agent-based models. Ecological modelling, 198(1), 115-126.
+
+[3] Grimm, V., Berger, U., DeAngelis, D. L., Polhill, J. G., Giske, J., & Railsback, S. F. (2010). The ODD protocol: a review and first update. Ecological Modelling, 221(23), 2760-2768.
+
+[4] Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern Institute on Complex Systems, Northwestern University.
 @#$#@#$#@
 default
 true

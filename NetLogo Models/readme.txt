@@ -1,3 +1,8 @@
+This is an overview file explaining what models exist in the Old Models folder. See forage_valuehappy_model for an overview of the most recent (and most successful) iteration. Feel free to contact me if you need to know more about a model, or if you'd like me to add additional comments to a model so that you can explore it in more detail.
+
+1/20/2015, Dan Birman
+danbirman@gmail.com
+
 ## Test Models
 
 MVT_test_model - A test of the mean value theorem

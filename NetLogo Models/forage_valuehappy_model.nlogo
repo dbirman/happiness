@@ -619,35 +619,7 @@ The patches make up a square, edge-wrapped, grid of 11x11 cells (the edge-wrappi
 
 ### Foragers
 
-Foragers are independent agents who have a location. On each tick foragers move, try to eat
-
-### Linked Foragers
-
-Foragers who perform the socialize or mate tasks will become _linked_ to other foragers. When choosing a partner to socialize or mate with the foragers always prefer to choose a linked partner over a random partner.
-
-### Time
-
-The simulation is designed so that 100 ticks reflects approximately one week. The default values of variables reflect this fact.
-
-## Process overview and scheduling
-
-Each tick of the simulation runs in four steps:
- 1. Basics
-   i. Reduce the strength of links
-   ii. Age foragers
-   iii. Take 1 energy from all foragers (basic metabolism)
-   iiii. Kill foragers with energy <= 0
- 2. Patches
-   i. Increase the food on seeded patches
- 3. Foragers
-   i. Ask foragers to complete their current task
- 4. Cleanup
-   i. Deal with visuals (e.g. patch color)
-
-Time is _asynchronous_ and moves forward in _ticks_. Dealing with the order of tasks on one tick is non-trivial, because some tasks cause interactions between foragers (energy sharing, linking) which can affect their behavior on the same tick. The model currently implements the second option:
-
- 1. Run all tasks, then update all state variables at the end of the tick.
- 2. Randomly order the foragers on each tick, then run tasks in order.
+Foragers are independent agents who have a location. On each tick foragers evaluate their needs, determine their current happiness, make an action (eat/drink/socialize/reproduce), and then move. Foragers always move to the neighboring location (4neighbor) that has the highest 'value', a weighted function of their needs * what is on the patches in that direction. Foragers consider staying put as well.
 
 ## Design Concepts
 
@@ -655,9 +627,9 @@ Time is _asynchronous_ and moves forward in _ticks_. Dealing with the order of t
 
 Foragers are a simplified example of an organism trying to solve the problem of _foresight_ in a complex and varying environment [1]. 
 
-### Adaptation: Hunger
+1/20/2015 - I am continuing to update this...
 
-Foragers, like all organisms, rely on energy to survive and flourish. The simplest organisms imaginable use basic strategies to obtain and store energy and in this case foragers do as well. All foragers have a _hunger threshold_, below which they will try to gather food and eat their gathered food. When foragers are NOT hungry, they may still choose to engage in these activities (perhaps because they are pleasurable), but they may also choose to socialize, share, or mate, activities which they will not do when hungry.
+### Adaptation: Hunger
 
 ### Objectives
 
@@ -665,21 +637,11 @@ NOT IMPLEMENTED
 
 ### Learning
 
-Foragers do not learn over time. 
-
 ### Prediction
 
 NOT IMPLEMENTED
 
 ### Sensing and Error
-
-Foragers sense the world visually and with a certain amount of error, an attempt to replicate the difficulty of viewing the world we live in. Short of introducing full Bayesian statistics into each agent (a possibility to consider for the future), I chose to simply treat each "viewing" of the world as uniquer. Thus, on each view, agents receive a sample from a normal distribution with a true mean and a standard deviation which reflects their distance from the viewed object.
-
-> SD = Distance * __error-perc__
-
-Foragers existing in such a world would have eventually evolved a coping strategy, again, short of literally evolving this strategy, I chose to introduce a simplified version. Foragers simply have a _window of trust_ within which they linearly reduce the observed values for objects.
-
-> Trust Value = Error Value * ( 1 - Distance / __max-trust-dist__ )
 
 ### Interaction
 
@@ -693,49 +655,15 @@ Currently
 
 ## Initialization
 
-Pressing the __Reset__ button will set all patches to be un-seeded and kill all existing foragers. Pressing the __Seed Food__ button will seed __init-seed-count__ patches. Pressing the __Add Foragers__ button adds __forager-count__ foragers to the world in random locations, their initial eating threshold is set by the __default-thresh-eat__ variable. They will spawn with _100 energy_ and their initial task will be to _sit_.
+Press __Reset__ to clear all data, graphs, and the environment. Press __Setup__ to add an intial layer of food, water, and foragers. Press __Run__ to launch the simulation.
 
 ## Input Data
 
-The model does not use input. Eventually, the mimic the response of groups to external forcings it may be helpful to use input from real sources (such as food growth patterns in  desert, tropical, or temperate environments).
-
 ## Submodels
-
-Each of the tasks which a forager can carry out is its own submodel, they are described in detail within this section.
-
-### Sit
-A sitting forager is _bored_ and will decide, on this tick, what task to do next.
-#### Hedonic/Eudaimonic Model
-(TODO: This isn't implemented)
-
-To decide what to do next I imagine that foragers are guided by two kinds of joy in their simple lives. Hedonic joy is defined as immediate pleasures, these include eating food, sharing food, and mating. Eudaimonic joys are longer-term pleasures, such as gathering food, wandering, walking-to somewhere, socializing, and sharing.
-
-Each forager has a ratio of hedonic to eudaimonic tasks, my first attempt will simply be to use 25:25. When foragers sit because they have nothing to do next, they will then choose what to do based on the balance of hedonic/eudaimonic tasks they have recently done. They only have a memory for the 50 previous tasks.
-
-There is a "random" task mode in which, unless they are hungry, foragers will simply choose randomly between tasks.
-#### Random Model
-Foragers choose randomly, with equal probability, from the available tasks (those that are _on_ in the switches).
-### Walk-To
-When a forager has an _aim_, they will move to the patch which minimizes their distance to their aim. They will continue this task until they arrive on the patch they are aiming at, at which point they _sit_. Moving has a cost: __move-cost__.
-### Wander
-Foragers wander by choosing a random patch to move to next. With probability __cont-wander-perc__ a forager will continue to _wander_, or _sit_.
-### Gather
-If there is food available on a patch the forager will collect __max-gather__ of it. If there is no food available they will aim at a visible patch with the highest food, subject to error (see _Design Concepts: Error_). If all patches are equal they choose randomly. If they are below eating threshold they then _eat_, otherwise they _sit_.
-### Eat
-If the forager has food on hand they will eat __max-eat__ of it, adding an equal amount of energy. If they have no food on hand they switch to _gather_. After eating they will _eat_ again if they are below eating threshold, otherwise they _sit_.
-### Share
-If the forager has surplus food they will pick a visible forager with the minimum food on hand and aim at them. If they are on the same patch, they will give them __share-amount__ food. After sharing foragers _sit_.
-### Socialize & Mate
-Both socializing and mating occur according to the same rules. Foragers first pick a random linked neighbor, or if un-linked, stranger, and either aim and walk to them or socialize/mate with them (if on the same patch). Socializing consists of creating a new link with strength __link-double__. If a link exists and has strength > link-double / 2, the strength doubles. Mating adds that the forager who initiated contact hatches a new offspring and gives them __mate-energy-transfer__ initial energy. Their eating threshold is picked from a normal distribution with mean of their parent and standard deviation __mutation-rate__. Socializing and mating have a cost: __soc-cost__ and __mate-cost__.
-
-# TODO List
-
- - Foragers have no energy or food limits at the moment
- - Add hedonic/eudaimonic stuff
 
 # Credits and References
 
-This model was implemented by Daniel Birman, according to the outline proposed in [1], using NetLogo [2]. The model descriptions follows the ODD (Overview, Design concepts, Details) protocol [3, 4].
+This model was implemented by Daniel Birman, according to the outline proposed in [1], using NetLogo [2]. The valuehappy concept (predicting future happiness from present value) is derived from Boltzmann exploration where choices are made probabilistically relative to the expected reward. The model descriptions follows the ODD (Overview, Design concepts, Details) protocol [3, 4].
 
 ## References
 

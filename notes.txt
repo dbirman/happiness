@@ -1,0 +1,167 @@
+[Peter Telesca and Tom Gilovich]
+
+Here are three possible methods I've come upon, in consultation with Emily and in my own research.
+
+1) Simple subliminal presentation of the word "future." As I'm sure
+you are well aware, subliminal presentation of a word has been shown
+to activate the concept that word represents. This activation can be
+(and has been) demonstrated in numerous ways, the cleanest of which is
+in a lexical decision task paradigm. In an LDT, the participants must
+determine, as quickly as possible, whether a string of letters
+constitutes a word. The crucial finding is that subliminally
+presenting a word like "sailor" temporally facilitates the
+determination that "ship" is a word, while an unrelated but
+phonologically similar word like "tailor" does not facilitate word
+recognition. The assumption is that the concept "sailor" as well as
+its associations have been activated.Other examples abound in the
+literature, but one particularly enlightening and surprising finding
+is by Dijksterhuis, who actually succeeded in subliminally
+conditioning subjects to associate "me" with "good." This evaluative
+conditioning was shown to have effects on supraliminal evaluations of
+the self (e.g., pumped up participants showed less sensitivity to
+bogus negative feedback compared to controls). Such conditioning
+obviously presupposes the activation (priming) of both concepts, which
+is all we really need for the study you proposed. 
+
+% Source: Dijksterhuis, Ap. (2004). I like myself but I don't know
+% why: Enhancing implicit self-esteem by subliminal evaluative
+% conditioning. 
+
+
+2) Sentence unscrambling that includes the word "future," as well as
+concepts and themes that relate to future more generally. Again, as
+I'm sure you are aware, in one of the seminal studies on priming,
+subjects were induced to construct a viable sentence using three of
+the four scrambled words. Half of the sentence dealt with relatively
+neutral topics, while the other half dealt with aggression. Typically,
+in the control condition, none of the words relate to aggression. When
+subjects were then induced to read an ambiguous description of a
+person's behavior (in an ostensibly unrelated task), those who had
+seen more aggressive sentences thought the individual was more
+aggressive. This simple manipulation has been shown to increase the
+accessibility of many concepts, and our extending it to the concepts
+of past and future seems to be within reason.
+
+
+% Source: Srull, T. K., & Wyer, R. S. (1979). The role of category accessibility in the interpretation of information about persons: Some determinants and implications.
+
+
+3) This last one is more specific to priming the future and
+past. Ouellet et al. primed the future or past by supraliminally
+presenting both adverbs and conjugated verbs to
+participants. Participants in the future condition saw 18 verbs
+conjugated into the future tense (dirá--he will say) and 6
+future-related adverbs (e.g., after), while those in the past
+condition saw 18 verbs conjugated into the past tense (dijo--he said)
+and 6 past-related adverbs (e.g., before). The authors found that
+those in the past condition tended to orient their attention more to
+the left, while those in the future condition tended to orient the
+attention to the right. This seems to me to be an interesting
+paradigm, but honestly the size of the effect they found was pretty
+small, so I'm not entirely sure that the results convincingly validate
+their priming procedure. Also, the study was conducted in Spanish, a
+language in which tense is usually indicated by the conjugation of a
+single word, namely the verb. In English, conjugation usually involves
+multiple words and can often be more ambiguous. If the connection
+between verb conjugation and the concepts of past and of future isn't
+quite as tight in English as it is in Spanish, it's possible that
+seeing a conjugated verb could induce less activation of past/future
+in English-speaking participants than it did in their Spanish-speaking
+counterparts. 
+% Source: Ouellet, Marc, Santiago, J., Funes, M.J., & Lupianez, J. (2010). Thinking about the future moves attention to the right.
+
+
+I hope this something like what you were looking for. I'll leave you
+with the following general concern. I can understand priming a
+concrete object like "sailor," or even a relatively abstract one that
+has clear behavioral correlates, like aggression. I would assume there
+is pretty strong agreement between individuals about what these terms
+mean and how they are instantiated. However, it's not clear to me that
+the same goes for past and future. What does an individual think of
+when he or she thinks "future"? I would say he thinks of his most
+probable life course (on various time scales). For one person it could
+mean working long hours in the office, and for another it could mean
+raising children, etc. For one the future could mean possibility while
+for another, perhaps an older person, it could mean retirement or
+death. So even if we are able to prime the word "future" using any of
+the above methods, I'm not sure that we will really be priming the
+same concept across individuals. 
+
+
+
+
+Before I discuss alternative habituation paradigms, I want to offer a
+possible addendum to one of the paradigms you thought up last
+week--the one in which subjects flip through various pictures under
+the direction to maximize pleasure. In our meeting you mentioned that
+you wanted to avoid the trivial conclusion that priming a future
+orientation simply makes individuals rush through any task set before
+them. One way to rule out that explanation is to include an alternate
+condition in which individuals are future-primed (or not) and then are
+made to study a list of words or pictures with the expectation of
+later performing a recall test. If Professor Edelman's account ---
+that individuals in a forward-thinking mode spend less time basking in
+momentary pleasure and more time working on new tasks --- is correct,
+then the future-primed individuals should spend even more time
+studying the list. I believe they would do so, and that result would
+both directly strengthen Professor Edelman's theory and weaken the
+counterclaim that future-primed individuals simply want to "get on"
+with everything.
+
+\subsection{Habituation research}
+
+1) Similar to the dial-rating paradigm we discussed last week, a group
+of researchers has measured gustatory habituation simply by having
+subjects repeatedly taste sucrose samples and rate their hedonic
+value using the previously established "hedonic general magnitude
+scale" (gLMS). The useful thing about this scale is that it
+measures both the intensity/quality of the stimulus and the
+pleasure the subject derives from it. Sometimes these factors do
+not co-vary--in the present study, both obese and lean women found
+the intensity/quality of the sucrose to be similar, and both
+started out with similar optimal amounts of sugar consumption. But
+the sucrose-pleasurability functions of the two groups did strongly
+differ in their rates of decay, with obese women having a much
+slower habituation rate to the sugar. Similarly, any behavioral
+differences between future-oriented and non-future oriented groups
+could be grounded either in the actual perception of the ostensibly
+pleasing pictures or in their conscious willingness/desire to
+indulge themselves in an extended session of looking at said
+pictures. (We discussed both possibilities in the meeting.) The
+gLMS might allow us to distinguish between those two accounts.
+% Source: 
+% http://www.sciencedirect.com/science/article/pii/S019566631200027X
+
+2) Apparently, many habituation studies have found that the magnitude
+of a startle response elicited during a habituation paradigm varies
+depending on the valence of the images used. If the subject is being
+habituated to positive stimuli, then the startle response is smaller
+in comparison to the startle response when neutral/negative stimuli
+are being presented. As such, we might expect the startle response (or
+any comparable physiological measure--GSR, heart rate, etc.) of
+non-future primed individuals to be smaller than that of future primed
+individuals if non-future primed individuals really do perceive the
+objectively identical stimuli as relatively more pleasurable. As in
+#1, this paradigm could be useful for isolating the difference between
+perception and conscious exercise of will. 
+% Source: 
+% http://dionysus.psych.wisc.edu/coursewebsites/Psy804/Readings/bradley93.pdf     (particularly p. 973)
+
+
+3) Lastly, there is a burgeoning literature on affective habituation
+(i.e., decreased pleasure over repeated viewings, particularly in
+homogenous settings) that is of practical and theoretical importance
+for us. On the practical side, the research cited below offers a more
+implementable version of the method mentioned in #1. The authors found
+robust habituation to positive visual stimuli (photos of people
+playing water sports, which are considered to be high pleasure IAPS
+stimuli) over 20 repeated presentations, with only very brief pleasure
+rating periods separating each trial. On the theoretical side, this
+paper echoes many of the themes we discussed in our meeting. For
+example, the authors conceive of affective habituation as encouraging
+individuals to seek novel events and experiences rather than bask in
+the glow of past or even easily accessible, present glories. All told,
+this paper seems to be the firmest and most direct foundation for our
+undertaking.
+% Source:
+% http://www.springerlink.com/content/ku614j4684140770/fulltext.pdf

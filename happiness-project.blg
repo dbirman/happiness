@@ -1,0 +1,49 @@
+This is BibTeX, Version 0.99d (TeX Live 2012/MacPorts 2012_5)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: happiness-project.aux
+The style file: chicago.bst
+Database file #1: /Users/shimon/Documents/my.bib
+Warning--empty publisher in Cleeremans08
+Warning--empty institution in NovareseEtAl09
+You've used 23 entries,
+            2861 wiz_defined-function locations,
+            892 strings with 11435 characters,
+and the built_in function-call counts, 16590 in all, are:
+= -- 1316
+> -- 1309
+< -- 5
++ -- 401
+- -- 455
+* -- 1501
+:= -- 3090
+add.period$ -- 70
+call.type$ -- 23
+change.case$ -- 171
+chr.to.int$ -- 23
+cite$ -- 25
+duplicate$ -- 420
+empty$ -- 981
+format.name$ -- 511
+if$ -- 3074
+int.to.chr$ -- 1
+int.to.str$ -- 0
+missing$ -- 26
+newline$ -- 118
+num.names$ -- 234
+pop$ -- 127
+preamble$ -- 1
+purify$ -- 313
+quote$ -- 0
+skip$ -- 450
+stack$ -- 0
+substring$ -- 853
+swap$ -- 131
+text.length$ -- 5
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 420
+warning$ -- 2
+while$ -- 224
+width$ -- 0
+write$ -- 310
+(There were 2 warnings)

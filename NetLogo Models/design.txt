@@ -1,0 +1,5 @@
+Instead of actually moving, model the moving portion:
+
+Foragers hang out at food sites or socializing sites. Depending on how they feel they move around. Only move if food available drops below a threshold, only go to socialize when you need to socialize. Etc. Type of socializing depends on their needs, all depend on hed/eud, etc. They move depending on what they "value" most, where value is learned.
+
+This fits q-learning MUCH better (state = food location, social location; actions = eat, social, reproduce, move, stay). Now we can do a proper q-table!!! AHHHH THIS IS WAY BETTER. 

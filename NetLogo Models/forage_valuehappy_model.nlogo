@@ -1,14 +1,18 @@
+; Initialize variables
+; Patches will have food and water
 patches-own [seed? water?]
-
 breed [foragers forager]
+; Foragers will have happiness, states, and a 'score' for how much they have reproduced (a measure of fitness?)
 foragers-own [hed eud hunger thirst social eud-value hed-value rep-score]
 
+; Clears everything
 to reset
   clear-all
   ask patches [set seed? false set water? false]
   reset-ticks
 end
 
+; Initializes a few patches with food and water, adds some foragers, colors patches appropriately
 to setup
   ask n-of init-food patches [set seed? true]
   ask n-of init-water patches with [not seed?] [set water? true]
@@ -16,6 +20,7 @@ to setup
   patch-color
 end
 
+; The "tick" function. This moves the foragers around and then updates the patches.
 to go
   foragers-do
   patches-do
@@ -26,18 +31,27 @@ end
 ;; FORAGERS ;;
 ;;;;;;;;;;;;;;
 
+; Called by "go"
+; Each forager updates its hedonic and eudaimonic values appropriately, deals with its needs, acts, and then evaluates its surroundings to decide where to move
+; Note: the first line kills foragers who are very hungry, thirsty, or without enough socializing. If you turn this on you have to also turn on reproduction.
 to foragers-do
   ask foragers [
     ;if random-float 1 < (hunger * hunger * .00001 / 3 + thirst * thirst * .00001 / 3 + social * social * .00001 / 3) [die]
     set eud get-eud
     set hed get-hed
+    ; Calculate your needs
     forager-needs
     ;; REPORTS: NORTH, EAST, SOUTH, WEST
+    ; Eat/drink/socialize/reproduce
     forager-action
+    ; Move to the direction with the highest value!
     forager-evaluate
   ]
 end
 
+; Called by 'foragers-do'
+; Foragers function
+; Figures out what direction this forager considers the 'best' direction to move in (overweighting its current location), then moves there
 to forager-evaluate
   let values forager-value
   ;; Okay, now pick the best direction and break ties randomly
@@ -55,6 +69,15 @@ to forager-evaluate
   ]
 end
 
+; called by 'foragers-do'
+; Foragers function
+; Decides what action the forager will do on this tick, determined by whether I am hedonically or eudaimonically happy/unhappy
+; Foragers reproduce when they're both eudaimonically and hedonically happy
+; Foragers eat/drink when they're eudaimonically happy but hedonically unhappy (temporary unhappiness)
+; Foragers socialize when they're eudaimonically unhappy but hedonically happy (long-term unhappiness)
+; Foragers will do everything except reproduce when they're just toally unhappy
+;
+; Note: If on-hedeud (a switch in the interface) is not enabled, it just picks randomly from the possible actions
 to forager-action
   ifelse on-hedeud [
     ifelse eud > eud-value
@@ -86,6 +109,8 @@ to forager-action
   ]
 end
 
+; Called by 'foragers-do'
+; Gets the value of moving in each of the possible directions and compares them to staying in place
 to-report forager-value
   ;; This is complicated, we want to look in four directions and figure out the "value" of this direction to this forager.
   ;; This works by looking out and discounting each direction's seed, water, and social availability.
@@ -100,12 +125,15 @@ to-report forager-value
   report (list sum hval sum nval sum eval sum sval sum wval)
 end
 
+; Helper function
+; Calculates the value of a specific patch
 to-report get-value [p]
   let r (count patches with [seed?] / count patches with [water?])
   if p = nobody [report 0]
   report count (other foragers-on p) * social * soc-mult + food-mult * hunger * [ifelse-value seed? [1] [0]] of p + thirst-mult * thirst * r * [ifelse-value water? [1] [0]] of p
 end
 
+; Updates this foragers needs (0->100 max)
 to forager-needs
   set hunger hunger + 1
   if hunger > 100 [set hunger 100]
@@ -115,22 +143,27 @@ to forager-needs
   if social > 100 [set social 100]
 end
 
-;;;;
+;;;;;;;;;;;;;
 ;; ACTIONS ;;
 ;;;;;;;;;;;;;
 
+; Eat whatever is on this patch
 to eat
   if [seed? = true] of patch-here [set hunger 0 ask patch-here [set seed? false]]
 end
 
+; Drink from the water on this patch
 to drink
   if [water? = true] of patch-here [set thirst 0]
 end
 
+; Socialize with other foragers here
 to socialize
   if count other foragers-on patch-here > 0 [set social 0]
 end
 
+; If you can, reproduce (this costs you hunger/thirst/social, but increases your "score")
+; The score is a read-out of forager fitness, more or less
 to reproduce
   ;if count other foragers-on patch-here > 0 and hunger < 20 and thirst < 20 and social < 20 [new-forager]
   if count other foragers-on patch-here > 0 and hunger < 20 and thirst < 20 and social < 20  [set rep-score rep-score + 1
@@ -147,11 +180,16 @@ end
 ;; PATCHES ;;
 ;;;;;;;;;;;;;
 
+; Called by 'go'
+; Checks to see if we should add more food
+; Updates each patches color
 to patches-do
   if random-float 1 < seed-rate [ask one-of patches with [not seed?] [set seed? true]]
   patch-color
 end
 
+; Called by 'patches-do'
+; Sets patch colors appropriately
 to patch-color
   ask patches [
     if seed? [set pcolor green]
@@ -164,26 +202,32 @@ end
 ;; HELPERS ;;
 ;;;;;;;;;;;;;
 
+; Adds a new forager, can be used to by 'reproduce' to add new foragers to the world
 to new-forager
   hatch-foragers 1 [set hunger 10 set thirst 10 set social 10 set eud-value random-normal [eud-value] of myself mut-rate set hed-value random-normal [hed-value] of myself (mut-rate * 2)] 
 end
 
+; Returns my eudaimonic happiness (how well i'm doing on not being hungry/thirsty/non-social)
 to-report get-eud
   report (300 - hunger - thirst - social) / 300
 end
 
+; Returns my hedonic happiness (did I recently eat, drink, or socialize)
 to-report get-hed
   report (ifelse-value (hunger < 10) [1] [0]) + (ifelse-value (thirst < 10) [1] [0]) + (ifelse-value (social < 10) [1] [0])
 end
 
+; Mapping function to map 'get-value' onto a list
 to-report get-value-list [plist]
   report map get-value plist
 end
 
+; Mapping function to multiply a list by a fixed value
 to-report get-mult-list [mult plist]
   report (map [?1 * ?2] mult plist)
 end
 
+; Returns a large array containing all of the different patches in each direction, uses an algorithm to pick up the patches within distance 5 patches in all directions
 to-report get-directions
   let STAY (list patch-here)
   let NORTH []
@@ -541,6 +585,25 @@ init-foragers
 NIL
 HORIZONTAL
 
+PLOT
+869
+393
+1069
+543
+Rep-Score
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" "if count foragers > 0 [\nset-plot-x-range ticks - 90 ticks + 10\nset-current-plot-pen \"pen-1\"\nforeach [who] of foragers [ plotxy ticks [rep-score] of forager ? ]\nset-current-plot-pen \"default\"\nplot mean [rep-score] of foragers\n]"
+PENS
+"default" 1.0 0 -16777216 true "" ""
+"pen-1" 1.0 2 -7500403 true "" ""
+
 @#$#@#$#@
 # Forager Value Model
 
@@ -556,7 +619,7 @@ The patches make up a square, edge-wrapped, grid of 11x11 cells (the edge-wrappi
 
 ### Foragers
 
-Foragers are independent agents who have a location and a current task. You can control how foragers pick their tasks and which tasks are available using the on-off switches. Foragers can: _gather, eat, share, wander, walk-to, socialize, mate, and sit_.
+Foragers are independent agents who have a location. On each tick foragers move, try to eat
 
 ### Linked Foragers
 

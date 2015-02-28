@@ -3,6 +3,11 @@ This is an overview file explaining what models exist in the Old Models folder. 
 1/20/2015, Dan Birman
 danbirman@gmail.com
 
+## Intro
+
+The idea here is that 'foragers' are agents operating in a probabilistic environment
+
+
 ## Test Models
 
 MVT_test_model - A test of the mean value theorem

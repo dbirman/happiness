@@ -97,35 +97,34 @@ to forager-action
   ; Now we need to figure out our transition probabilities, we will pick randomly from the types for the patch we're on
   let trans-probs []
   set curRow one-of patchtypes
-  ifelse on-hedeud [
-    ifelse eud > eud-value
-    [
-      ifelse hed > hed-value [
-        ;; EUD HAPPY, HED HAPPY
-        ;; // DO ??
-        reproduce
-        set repFlag true
-        stop
-      ] [
-      ;; EUD HAPPY, HED UNHAPPY
-      set trans-probs matrix:get-row hedtransMat curRow
-      set curType true
-      ]
+
+  ifelse eud > eud-value
+  [
+    ifelse hed > hed-value [
+      ;; EUD HAPPY, HED HAPPY
+      ;; // DO ??
+      reproduce
+      set repFlag true
+      stop
+    ] [
+    ;; EUD HAPPY, HED UNHAPPY
+    set trans-probs matrix:get-row hedtransMat curRow
+    set curType true
     ]
-    [
-      ifelse hed > hed-value [
-        ;; EUD UNHAPPY, HED HAPPY
-        set trans-probs matrix:get-row eudtransMat curRow
-        set curType false
-      ] [
-      ;; EUD UNHAPPY, HED UNHAPPY
-        set curType (one-of (list true false))
-        ifelse curType [set trans-probs matrix:get-row hedtransMat curRow] [set trans-probs matrix:get-row eudtransMat curRow]
-      ]
-    ]
-  ] [ ;; else
-    set trans-probs [1 1 1 1]
   ]
+  [
+    ifelse hed > hed-value [
+      ;; EUD UNHAPPY, HED HAPPY
+      set trans-probs matrix:get-row eudtransMat curRow
+      set curType false
+    ] [
+    ;; EUD UNHAPPY, HED UNHAPPY
+      set curType (one-of (list true false))
+      ifelse curType [set trans-probs matrix:get-row hedtransMat curRow] [set trans-probs matrix:get-row eudtransMat curRow]
+    ]
+  ]
+  
+  if not on-hedeud [ set trans-probs [1 1 1 1] ]
   ; No we have our transition probabilities, but we need to normalize them
   let sumVal sum trans-probs + .001
   set trans-probs (map / trans-probs (list sumVal sumVal sumVal sumVal))
@@ -455,7 +454,7 @@ seed-rate
 seed-rate
 0
 5
-0.35
+0.05
 0.05
 1
 NIL
@@ -588,7 +587,7 @@ SWITCH
 122
 on-hedeud
 on-hedeud
-0
+1
 1
 -1000
 

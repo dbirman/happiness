@@ -1,14 +1,25 @@
+extensions [matrix]
 ; Initialize variables
 ; Patches will have food and water
 patches-own [seed? water?]
 breed [foragers forager]
 ; Foragers will have happiness, states, and a 'score' for how much they have reproduced (a measure of fitness?)
-foragers-own [hed eud hunger thirst social eud-value hed-value rep-score]
+foragers-own [hed eud hunger thirst social rep-score curChoice pastChoice curRew pastRew curRow pastRow curType pastType repFlag]
+;; transMat corresponds to the transition probabilities:
+;             move   eat   drink   social
+;  food     
+;  water    
+;  foragers  
+;  nothing   
+globals [eudtransMat hedtransMat last-trans-probs]
 
 ; Clears everything
 to reset
   clear-all
   ask patches [set seed? false set water? false]
+  ;; Each transformation matrix corresponds to being either hed or eudaimonic unhappy, if we're totally happy we reproduce
+  set hedtransMat matrix:from-row-list [[1 1 1 1][1 1 1 1][1 1 1 1][1 1 1 1]] ;; each row corresponds to one state: seed?, water?, social?, nothing
+  set eudtransMat matrix:from-row-list [[1 1 1 1][1 1 1 1][1 1 1 1][1 1 1 1]]
   reset-ticks
 end
 
@@ -16,7 +27,7 @@ end
 to setup
   ask n-of init-food patches [set seed? true]
   ask n-of init-water patches with [not seed?] [set water? true]
-  create-foragers init-foragers [setxy random-xcor random-ycor set hunger random 100 set thirst random 100 set social random 100 set eud-value eud-value-init set hed-value hed-value-init]
+  create-foragers init-foragers [set curType true set repFlag false setxy random-xcor random-ycor set hunger random 100 set thirst random 100 set social random 100]
   patch-color
 end
 
@@ -36,6 +47,11 @@ end
 ; Note: the first line kills foragers who are very hungry, thirsty, or without enough socializing. If you turn this on you have to also turn on reproduction.
 to foragers-do
   ask foragers [
+    set pastType curType
+    set pastRew curRew
+    set pastRow curRow
+    set pastChoice curChoice
+    ; Right now foragers don't die... we just use # of successful reproductions as a measure of success
     ;if random-float 1 < (hunger * hunger * .00001 / 3 + thirst * thirst * .00001 / 3 + social * social * .00001 / 3) [die]
     set eud get-eud
     set hed get-hed
@@ -44,41 +60,43 @@ to foragers-do
     ;; REPORTS: NORTH, EAST, SOUTH, WEST
     ; Eat/drink/socialize/reproduce
     forager-action
-    ; Move to the direction with the highest value!
-    forager-evaluate
+    ; Update q-values
+    forager-update
   ]
 end
 
-; Called by 'foragers-do'
-; Foragers function
-; Figures out what direction this forager considers the 'best' direction to move in (overweighting its current location), then moves there
-to forager-evaluate
-  let values forager-value
-  ;; Okay, now pick the best direction and break ties randomly
-  let mval max values
-  let mpatches [] ;; This will be a list of the best directions to go
-  if item 0 values = mval [set mpatches lput patch-at 0 0 mpatches]
-  if item 1 values = mval [set mpatches lput patch-at 0 1 mpatches]
-  if item 2 values = mval [set mpatches lput patch-at 1 0 mpatches]
-  if item 3 values = mval [set mpatches lput patch-at 0 -1 mpatches]
-  if item 4 values = mval [set mpatches lput patch-at -1 0 mpatches]
-  let np one-of mpatches
-  if not (np = nobody) [
-  face np
-  move-to np
+to forager-update
+  if not repFlag [
+    ifelse curType [
+      ;; HED UNHAPPY
+      let nhed get-hed
+      set curRew nhed - hed
+      matrix:set hedtransMat pastRow pastChoice (pastRew + alpha * curRew)
+    ] [
+      ;; EUD UNHAPPY
+      let neud get-eud
+      set curRew neud - eud
+      matrix:set eudtransMat pastRow pastChoice (pastRew + alpha * curRew)
+    ]
   ]
+  set repFlag false
 end
+
 
 ; called by 'foragers-do'
 ; Foragers function
-; Decides what action the forager will do on this tick, determined by whether I am hedonically or eudaimonically happy/unhappy
-; Foragers reproduce when they're both eudaimonically and hedonically happy
-; Foragers eat/drink when they're eudaimonically happy but hedonically unhappy (temporary unhappiness)
-; Foragers socialize when they're eudaimonically unhappy but hedonically happy (long-term unhappiness)
-; Foragers will do everything except reproduce when they're just toally unhappy
 ;
 ; Note: If on-hedeud (a switch in the interface) is not enabled, it just picks randomly from the possible actions
 to forager-action
+  ; First we need to figure out what type of patch they are on
+  let patchtypes []
+  if [seed?] of patch-here [set patchtypes lput 0 patchtypes]
+  if [water?] of patch-here [set patchtypes lput 1 patchtypes]
+  if count foragers-on patch-here > 1 [set patchtypes lput 2 patchtypes]
+  if empty? patchtypes [set patchtypes [3]]
+  ; Now we need to figure out our transition probabilities, we will pick randomly from the types for the patch we're on
+  let trans-probs []
+  set curRow one-of patchtypes
   ifelse on-hedeud [
     ifelse eud > eud-value
     [
@@ -86,26 +104,40 @@ to forager-action
         ;; EUD HAPPY, HED HAPPY
         ;; // DO ??
         reproduce
+        set repFlag true
+        stop
       ] [
       ;; EUD HAPPY, HED UNHAPPY
-      eat
-      drink
+      set trans-probs matrix:get-row hedtransMat curRow
+      set curType true
       ]
     ]
     [
       ifelse hed > hed-value [
         ;; EUD UNHAPPY, HED HAPPY
-        socialize
+        set trans-probs matrix:get-row eudtransMat curRow
+        set curType false
       ] [
       ;; EUD UNHAPPY, HED UNHAPPY
-      eat
-      drink
-      socialize
+        set curType (one-of (list true false))
+        ifelse curType [set trans-probs matrix:get-row hedtransMat curRow] [set trans-probs matrix:get-row eudtransMat curRow]
       ]
     ]
+  ] [ ;; else
+    set trans-probs [1 1 1 1]
   ]
-  [
-    run one-of (list task eat task drink task socialize task reproduce)
+  ; No we have our transition probabilities, but we need to normalize them
+  let sumVal sum trans-probs + .001
+  set trans-probs (map / trans-probs (list sumVal sumVal sumVal sumVal))
+  set trans-probs (list (item 0 trans-probs) (item 0 trans-probs + item 1 trans-probs) (item 0 trans-probs + item 1 trans-probs + item 2 trans-probs) (sum trans-probs))
+  ; Now we can actually use these from zero to one
+  let choice (random 100) / 100
+  ifelse choice < item 0 trans-probs [move set curChoice 0 stop] ; action: move
+  [ifelse choice < item 1 trans-probs [eat set curChoice 1 stop] ; action: eat
+  [ifelse choice < item 2 trans-probs [drink set curChoice 2 stop] ; action: drink
+  ; action: social
+  [socialize set curChoice 3 stop]
+  ]
   ]
 end
 
@@ -176,6 +208,26 @@ to reproduce
   ;set social 50
 end
 
+; Called by 'foragers-do'
+; Foragers function
+; Figures out what direction this forager considers the 'best' direction to move in (overweighting its current location), then moves there
+to move
+  let values forager-value
+  ;; Okay, now pick the best direction and break ties randomly
+  let mval max values
+  let mpatches [] ;; This will be a list of the best directions to go
+  if item 0 values = mval [set mpatches lput patch-at 0 0 mpatches]
+  if item 1 values = mval [set mpatches lput patch-at 0 1 mpatches]
+  if item 2 values = mval [set mpatches lput patch-at 1 0 mpatches]
+  if item 3 values = mval [set mpatches lput patch-at 0 -1 mpatches]
+  if item 4 values = mval [set mpatches lput patch-at -1 0 mpatches]
+  let np one-of mpatches
+  if not (np = nobody) [
+  face np
+  move-to np
+  ]
+end
+
 ;;;;;;;;;;;;;
 ;; PATCHES ;;
 ;;;;;;;;;;;;;
@@ -184,7 +236,7 @@ end
 ; Checks to see if we should add more food
 ; Updates each patches color
 to patches-do
-  if random-float 1 < seed-rate [ask one-of patches with [not seed?] [set seed? true]]
+  if random-float 1 < seed-rate [if count patches with [not seed?] > 0 [ask one-of patches with [not seed?] [set seed? true]]]
   patch-color
 end
 
@@ -452,11 +504,11 @@ SLIDER
 317
 189
 350
-eud-value-init
-eud-value-init
+eud-value
+eud-value
 0
 1
-0.71
+0.5
 .01
 1
 NIL
@@ -467,12 +519,12 @@ SLIDER
 358
 189
 391
-hed-value-init
-hed-value-init
+hed-value
+hed-value
 0
 3
-3
-.5
+1.5
+.1
 1
 NIL
 HORIZONTAL
@@ -536,7 +588,7 @@ SWITCH
 122
 on-hedeud
 on-hedeud
-1
+0
 1
 -1000
 
@@ -604,12 +656,33 @@ PENS
 "default" 1.0 0 -16777216 true "" ""
 "pen-1" 1.0 2 -7500403 true "" ""
 
+SLIDER
+15
+445
+187
+478
+alpha
+alpha
+0
+1
+0.5
+.01
+1
+NIL
+HORIZONTAL
+
 @#$#@#$#@
 # Forager Value Model
 
 ## Purpose
 
 This model was designed to explore the happiness of _minimally social foragers_ within a variable environment. Foragers track their happiness over time as they eat, drink, and socialize.
+
+Foragers use a reinforcement learning algorithm based on the typical (albeit crude) "actor-critic" model. In short:
+
+On each timestep foragers determine their next action by taking into account their current state. Each state is associated with a specific set of transition probabilities for performing an action (moving, eating, drinking, socializing). Following their action they receive a reward (their delta sth and lth), which they use to update the transition probabilities. Ad infinitum...
+
+We are interested in whether foragers that have a low eudaimonic threshold (seek long-term happiness) are more likely to "explore" the environment in times of food stress compared to foragers with a high eudaimonic threshold (seek short-term happiness). 
 
 ## Entities, State Variables, and Scales
 

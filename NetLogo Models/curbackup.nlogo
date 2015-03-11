@@ -1,21 +1,39 @@
+extensions [matrix]
+; Initialize variables
+; Patches will have food and water
 patches-own [seed? water?]
-
 breed [foragers forager]
-foragers-own [hed eud hunger thirst social eud-value hed-value rep-score]
+; Foragers will have happiness, states, and a 'score' for how much they have reproduced (a measure of fitness?)
+foragers-own [hed eud hunger thirst social rep-score curValTask pastTaskInd curTaskInd curRow pastRow curReward pastReward]
+;; transMat corresponds to the transition probabilities:
+;             move   eat   drink   social
+;  food     
+;  water    
+;  foragers  
+;  nothing   
+globals [transMat last-trans-probs taskList]
 
+; Clears everything
 to reset
   clear-all
   ask patches [set seed? false set water? false]
+  ;; Each transformation matrix corresponds to being either hed or eudaimonic unhappy, if we're totally happy we reproduce
+  set transMat matrix:from-row-list [[1 1 1 1 1 1 1][1 1 1 1 1 1 1][1 1 1 1 1 1 1][1 1 1 1 1 1 1]]
+  ;; each row corresponds to one state: seed?, water?, social?, nothing
+  ;; each column corresponds to eat, drink, soc, rep, move-food, move-water, move-social
+  set taskList (list (task eat) (task drink) (task socialize) (task reproduce) (task move-food) (task move-water) (task move-social))
   reset-ticks
 end
 
+; Initializes a few patches with food and water, adds some foragers, colors patches appropriately
 to setup
   ask n-of init-food patches [set seed? true]
   ask n-of init-water patches with [not seed?] [set water? true]
-  create-foragers init-foragers [setxy random-xcor random-ycor set hunger random 100 set thirst random 100 set social random 100 set eud-value eud-value-init set hed-value hed-value-init]
+  create-foragers init-foragers [setxy random-xcor random-ycor set hunger random 100 set thirst random 100 set social random 100 set curValTask (task foodVal)]
   patch-color
 end
 
+; The "tick" function. This moves the foragers around and then updates the patches.
 to go
   foragers-do
   patches-do
@@ -26,20 +44,151 @@ end
 ;; FORAGERS ;;
 ;;;;;;;;;;;;;;
 
+; Called by "go"
+; Each forager updates its hedonic and eudaimonic values appropriately, deals with its needs, acts, and then evaluates its surroundings to decide where to move
+; Note: the first line kills foragers who are very hungry, thirsty, or without enough socializing. If you turn this on you have to also turn on reproduction.
 to foragers-do
   ask foragers [
-    ;if random-float 1 < (hunger * hunger * .00001 / 3 + thirst * thirst * .00001 / 3 + social * social * .00001 / 3) [die]
+    ; Calculate your needs
+    forager-needs
+    ; Save variables
+    set pastReward curReward
+    set pastRow curRow
+    set pastTaskInd curTaskInd
+    ; Get our current happiness
     set eud get-eud
     set hed get-hed
-    forager-needs
     ;; REPORTS: NORTH, EAST, SOUTH, WEST
+    ; Eat/drink/socialize/reproduce
     forager-action
-    forager-evaluate
+    ; Update q-values
+    forager-update
   ]
 end
 
-to forager-evaluate
-  let values forager-value
+to forager-update
+  let cur matrix:get-row transMat pastRow
+  matrix:set transMat pastRow curTaskInd ((1 - alpha) * (matrix:get transMat pastRow curTaskInd) + alpha * (pastReward + gamma * curReward))
+end
+
+
+; called by 'foragers-do'
+; Foragers function
+;
+; Note: If on-hedeud (a switch in the interface) is not enabled, it just picks randomly from the possible actions
+to forager-action
+  ; First we need to figure out what type of patch they are on
+  let patchtypes []
+  if [seed?] of patch-here [set patchtypes lput 0 patchtypes]
+  if [water?] of patch-here [set patchtypes lput 1 patchtypes]
+  if count foragers-on patch-here > 1 [set patchtypes lput 2 patchtypes]
+  if empty? patchtypes [set patchtypes [3]]
+  ; Now we need to figure out our transition probabilities, we will pick randomly from the types for the patch we're on
+  set curRow (one-of patchtypes)
+  let trans-probs matrix:get-row transMat curRow
+ 
+  if not on-hedeud [ set trans-probs [1 1 1 1 1 1 1] set curRow one-of [0 1 2 3]]
+  ; No we have our transition probabilities, but we need to normalize them
+  let sumVal sum trans-probs + .001
+  set trans-probs (map / trans-probs (list sumVal sumVal sumVal sumVal sumVal sumVal sumVal))
+  set trans-probs cumSum trans-probs
+
+  ; Now we can actually use these from zero to one
+  let choice (random 100) / 100
+  let counter 0
+  foreach trans-probs [ifelse (choice < ?) [run item counter taskList set curTaskInd counter stop] [set counter counter + 1]]
+end
+
+; Called by 'foragers-do'
+; Gets the value of moving in each of the possible directions and compares them to staying in place
+to-report forager-value
+  ;; This is complicated, we want to look in four directions and figure out the "value" of this direction to this forager.
+  ;; This works by looking out and discounting each direction's seed, water, and social availability.
+  ;; First, get the values for each direction
+  let directions get-directions
+  let mult item 5 directions
+  let hval get-mult-list [32] get-value-list item 0 directions 
+  let nval get-mult-list mult get-value-list item 1 directions
+  let eval get-mult-list mult get-value-list item 2 directions
+  let sval get-mult-list mult get-value-list item 3 directions
+  let wval get-mult-list mult get-value-list item 4 directions
+  report (list sum hval sum nval sum eval sum sval sum wval)
+end
+
+to-report socVal [p]
+  if p = nobody [report 0]
+  report count (other foragers-on p)
+end
+
+to-report foodVal [p]
+  if p = nobody [report 0]
+  report [ifelse-value seed? [1] [0]] of p
+end
+
+to-report waterVal [p]
+  if p = nobody [report 0]
+  report [ifelse-value water? [1] [0]] of p
+end
+
+; Updates this foragers needs (0->100 max)
+to forager-needs
+  set hunger hunger + 1
+  if hunger > 100 [set hunger 100]
+  set thirst thirst + 1
+  if thirst > 100 [set thirst 100]
+  set social social + 1
+  if social > 100 [set social 100]
+end
+
+;;;;;;;;;;;;;
+;; ACTIONS ;;
+;;;;;;;;;;;;;
+
+; Eat whatever is on this patch
+to eat
+  if [seed? = true] of patch-here [set curReward hunger * food-mult set hunger 0 ask patch-here [set seed? false]]
+end
+
+; Drink from the water on this patch
+to drink
+  if [water? = true] of patch-here [set curReward thirst * thirst-mult set thirst 0]
+end
+
+; Socialize with other foragers here
+to socialize
+  if count other foragers-on patch-here > 0 [set curReward social * soc-mult set social 0]
+end
+
+; If you can, reproduce (this costs you hunger/thirst/social, but increases your "score")
+; The score is a read-out of forager fitness, more or less
+to reproduce
+  ;if count other foragers-on patch-here > 0 and hunger < 20 and thirst < 20 and social < 20 [new-forager]
+  if count other foragers-on patch-here > 0 and hunger < 20 and thirst < 20 and social < 20  [set rep-score rep-score + 1
+  set hunger hunger + 10
+  set thirst thirst + 10
+  set social social + 10
+  set curReward 1
+  ]
+  ; if you fail to reproduce, negative reward
+end
+
+to move-food
+  set curValTask (task foodVal)
+  move forager-value
+end
+to move-social
+  set curValTask (task socVal)
+  move forager-value
+end
+to move-water
+  set curValTask (task waterVal)
+  move forager-value
+end
+
+; Called by 'foragers-do'
+; Foragers function
+; Figures out what direction this forager considers the 'best' direction to move in (overweighting its current location), then moves there
+to move [values]
   ;; Okay, now pick the best direction and break ties randomly
   let mval max values
   let mpatches [] ;; This will be a list of the best directions to go
@@ -55,103 +204,21 @@ to forager-evaluate
   ]
 end
 
-to forager-action
-  ifelse on-hedeud [
-    ifelse eud > eud-value
-    [
-      ifelse hed > hed-value [
-        ;; EUD HAPPY, HED HAPPY
-        ;; // DO ??
-        reproduce
-      ] [
-      ;; EUD HAPPY, HED UNHAPPY
-      eat
-      drink
-      ]
-    ]
-    [
-      ifelse hed > hed-value [
-        ;; EUD UNHAPPY, HED HAPPY
-        socialize
-      ] [
-      ;; EUD UNHAPPY, HED UNHAPPY
-      eat
-      drink
-      socialize
-      ]
-    ]
-  ]
-  [
-    run one-of (list task eat task drink task socialize task reproduce)
-  ]
-end
-
-to-report forager-value
-  ;; This is complicated, we want to look in four directions and figure out the "value" of this direction to this forager.
-  ;; This works by looking out and discounting each direction's seed, water, and social availability.
-  ;; First, get the values for each direction
-  let directions get-directions
-  let mult item 5 directions
-  let hval get-mult-list [32] get-value-list item 0 directions 
-  let nval get-mult-list mult get-value-list item 1 directions
-  let eval get-mult-list mult get-value-list item 2 directions
-  let sval get-mult-list mult get-value-list item 3 directions
-  let wval get-mult-list mult get-value-list item 4 directions
-  report (list sum hval sum nval sum eval sum sval sum wval)
-end
-
-to-report get-value [p]
-  let r (count patches with [seed?] / count patches with [water?])
-  if p = nobody [report 0]
-  report count (other foragers-on p) * social * soc-mult + food-mult * hunger * [ifelse-value seed? [1] [0]] of p + thirst-mult * thirst * r * [ifelse-value water? [1] [0]] of p
-end
-
-to forager-needs
-  set hunger hunger + 1
-  if hunger > 100 [set hunger 100]
-  set thirst thirst + 1
-  if thirst > 100 [set thirst 100]
-  set social social + 1
-  if social > 100 [set social 100]
-end
-
-;;;;
-;; ACTIONS ;;
-;;;;;;;;;;;;;
-
-to eat
-  if [seed? = true] of patch-here [set hunger 0 ask patch-here [set seed? false]]
-end
-
-to drink
-  if [water? = true] of patch-here [set thirst 0]
-end
-
-to socialize
-  if count other foragers-on patch-here > 0 [set social 0]
-end
-
-to reproduce
-  ;if count other foragers-on patch-here > 0 and hunger < 20 and thirst < 20 and social < 20 [new-forager]
-  if count other foragers-on patch-here > 0 and hunger < 20 and thirst < 20 and social < 20  [set rep-score rep-score + 1
-  set hunger hunger + 10
-  set thirst thirst + 10
-  set social social + 10
-  ]
-  ;set hunger 50
-  ;set thirst 50
-  ;set social 50
-end
-
 ;;;;;;;;;;;;;
 ;; PATCHES ;;
 ;;;;;;;;;;;;;
 
+; Called by 'go'
+; Checks to see if we should add more food
+; Updates each patches color
 to patches-do
-  if random-float 1 < seed-rate [ask one-of patches with [not seed?] [set seed? true]]
+  if random-float 1 < seed-rate [if count patches with [not seed?] > 0 [ask one-of patches with [not seed?] [set seed? true]]]
+  if random-float 1 < seed-rate [if count patches with [seed?] > (count patches / 2)  [ask one-of patches with [seed?] [set seed? false]]]
   patch-color
 end
 
+; Called by 'patches-do'
+; Sets patch colors appropriately
 to patch-color
   ask patches [
     if seed? [set pcolor green]
@@ -164,26 +231,41 @@ end
 ;; HELPERS ;;
 ;;;;;;;;;;;;;
 
+; Adds a new forager, can be used to by 'reproduce' to add new foragers to the world
 to new-forager
-  hatch-foragers 1 [set hunger 10 set thirst 10 set social 10 set eud-value random-normal [eud-value] of myself mut-rate set hed-value random-normal [hed-value] of myself (mut-rate * 2)] 
+  hatch-foragers 1 [set hunger 10 set thirst 10 set social 10] 
 end
 
+; Returns my eudaimonic happiness (how well i'm doing on not being hungry/thirsty/non-social)
 to-report get-eud
   report (300 - hunger - thirst - social) / 300
 end
 
+; Returns my hedonic happiness (did I recently eat, drink, or socialize)
 to-report get-hed
-  report (ifelse-value (hunger < 10) [1] [0]) + (ifelse-value (thirst < 10) [1] [0]) + (ifelse-value (social < 10) [1] [0])
+  report (ifelse-value (hunger < 10) [1] [0]) + (ifelse-value (thirst < 10) [1] [0])
 end
 
+; Mapping function to map 'get-value' onto a list
 to-report get-value-list [plist]
-  report map get-value plist
+  let rlist []
+  foreach plist [set rlist lput (runresult curValTask ?) rlist]
+  report rlist
 end
 
+; Mapping function to multiply a list by a fixed value
 to-report get-mult-list [mult plist]
   report (map [?1 * ?2] mult plist)
 end
 
+to-report cumSum [alist]
+  let csum 0
+  let cumlist []
+  foreach alist [set csum (csum + ?) set cumlist lput csum cumlist]
+  report cumlist
+end
+
+; Returns a large array containing all of the different patches in each direction, uses an algorithm to pick up the patches within distance 5 patches in all directions
 to-report get-directions
   let STAY (list patch-here)
   let NORTH []
@@ -207,8 +289,8 @@ end
 GRAPHICS-WINDOW
 207
 10
-667
-491
+668
+492
 5
 5
 41.0
@@ -314,7 +396,7 @@ food-mult
 food-mult
 0
 1
-0.5
+1
 .05
 1
 NIL
@@ -329,7 +411,7 @@ thirst-mult
 thirst-mult
 0
 1
-0.2
+1
 .05
 1
 NIL
@@ -344,7 +426,7 @@ soc-mult
 soc-mult
 0
 1
-0.1
+1
 .05
 1
 NIL
@@ -358,9 +440,9 @@ SLIDER
 seed-rate
 seed-rate
 0
-5
-0.35
+.5
 0.05
+0.01
 1
 NIL
 HORIZONTAL
@@ -403,96 +485,14 @@ PENS
 "default" 1.0 0 -16777216 true "" ""
 "pen-1" 1.0 2 -3026479 true "" ""
 
-SLIDER
-17
-317
-189
-350
-eud-value-init
-eud-value-init
-0
-1
-0.71
-.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-17
-358
-189
-391
-hed-value-init
-hed-value-init
-0
-3
-3
-.5
-1
-NIL
-HORIZONTAL
-
-PLOT
-993
-13
-1193
-163
-Foragers
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
-
-PLOT
-1094
-241
-1294
-391
-Hed-V Eud-V
-NIL
-NIL
-0.0
-10.0
-0.0
-2.0
-true
-true
-"" "if count foragers > 0 [\nset-current-plot-pen \"hed-V\"\nplot mean [hed-value] of foragers\nset-current-plot-pen \"eud-V\"\nplot mean [eud-value] of foragers\n]"
-PENS
-"hed-V" 1.0 0 -16777216 true "" ""
-"eud-V" 1.0 0 -7500403 true "" ""
-
-SLIDER
-17
-405
-189
-438
-mut-rate
-mut-rate
-0
-1
-0
-.01
-1
-NIL
-HORIZONTAL
-
 SWITCH
-91
-89
-207
-122
+83
+80
+199
+113
 on-hedeud
 on-hedeud
-1
+0
 1
 -1000
 
@@ -541,42 +541,131 @@ init-foragers
 NIL
 HORIZONTAL
 
+PLOT
+1102
+237
+1302
+387
+Rep-Score
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" "if count foragers > 0 [\nset-plot-x-range ticks - 90 ticks + 10\nset-current-plot-pen \"pen-1\"\nforeach [who] of foragers [ plotxy ticks [rep-score] of forager ? ]\nset-current-plot-pen \"default\"\nplot mean [rep-score] of foragers\n]"
+PENS
+"default" 1.0 0 -16777216 true "" ""
+"pen-1" 1.0 2 -7500403 true "" ""
+
+SLIDER
+16
+353
+188
+386
+alpha
+alpha
+0
+1
+0.2
+.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+18
+391
+190
+424
+gamma
+gamma
+0
+1
+0.93
+.01
+1
+NIL
+HORIZONTAL
+
 @#$#@#$#@
-## WHAT IS IT?
+# Forager Value Model
 
-(a general understanding of what the model is trying to show or explain)
+## Purpose
 
-## HOW IT WORKS
+This model was designed to explore the happiness of _minimally social foragers_ within a variable environment. Foragers track their happiness over time as they eat, drink, and socialize.
 
-(what rules the agents use to create the overall behavior of the model)
+Foragers use a reinforcement learning algorithm based on the typical (albeit crude) "actor-critic" model. In short:
 
-## HOW TO USE IT
+On each timestep foragers determine their next action by taking into account their current state. Each state is associated with a specific set of transition probabilities for performing an action (moving, eating, drinking, socializing). Following their action they receive a reward (their delta sth and lth), which they use to update the transition probabilities. Ad infinitum...
 
-(how to use the model, including a description of each of the items in the Interface tab)
+We are interested in whether foragers that have a low eudaimonic threshold (seek long-term happiness) are more likely to "explore" the environment in times of food stress compared to foragers with a high eudaimonic threshold (seek short-term happiness). 
 
-## THINGS TO NOTICE
+## Entities, State Variables, and Scales
 
-(suggested things for the user to notice while running the model)
+### Patches
 
-## THINGS TO TRY
+The patches make up a square, edge-wrapped, grid of 11x11 cells (the edge-wrapping therefore makes this world a torus). Patches can become _seeded_ in which case they get enough food to feed a forager. Patches can also be _water_ sources. A patch can have an unlimited number of foragers present at any given time.
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+### Foragers
 
-## EXTENDING THE MODEL
+Foragers are independent agents who have a location. On each tick foragers evaluate their needs, determine their current happiness, make an action (eat/drink/socialize/reproduce), and then move. Foragers always move to the neighboring location (4neighbor) that has the highest 'value', a weighted function of their needs * what is on the patches in that direction. Foragers consider staying put as well.
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+## Design Concepts
 
-## NETLOGO FEATURES
+### Basic Principles
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+Foragers are a simplified example of an organism trying to solve the problem of _foresight_ in a complex and varying environment [1]. 
 
-## RELATED MODELS
+1/20/2015 - I am continuing to update this...
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+### Adaptation: Hunger
 
-## CREDITS AND REFERENCES
+### Objectives
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+NOT IMPLEMENTED
+
+### Learning
+
+### Prediction
+
+NOT IMPLEMENTED
+
+### Sensing and Error
+
+### Interaction
+
+### Stochasticity
+
+### Collectives
+
+### Observation
+
+Currently 
+
+## Initialization
+
+Press __Reset__ to clear all data, graphs, and the environment. Press __Setup__ to add an intial layer of food, water, and foragers. Press __Run__ to launch the simulation.
+
+## Input Data
+
+## Submodels
+
+# Credits and References
+
+This model was implemented by Daniel Birman, according to the outline proposed in [1], using NetLogo [2]. The valuehappy concept (predicting future happiness from present value) is derived from Boltzmann exploration where choices are made probabilistically relative to the expected reward. The model descriptions follows the ODD (Overview, Design concepts, Details) protocol [3, 4].
+
+## References
+
+[1] Edelman, S. (2014). Explorations of happiness: proposed research. Personal Communication.
+
+[2] Grimm, V., Berger, U., Bastiansen, F., Eliassen, S., Ginot, V., Giske, J., ... & DeAngelis, D. L. (2006). A standard protocol for describing individual-based and agent-based models. Ecological modelling, 198(1), 115-126.
+
+[3] Grimm, V., Berger, U., DeAngelis, D. L., Polhill, J. G., Giske, J., & Railsback, S. F. (2010). The ODD protocol: a review and first update. Ecological Modelling, 221(23), 2760-2768.
+
+[4] Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern Institute on Complex Systems, Northwestern University.
 @#$#@#$#@
 default
 true

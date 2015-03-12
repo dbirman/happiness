@@ -4,25 +4,37 @@ extensions [matrix]
 patches-own [seed? water?]
 breed [foragers forager]
 ; Foragers will have happiness, states, and a 'score' for how much they have reproduced (a measure of fitness?)
-foragers-own [hed eud hunger thirst social rep-score curValTask pastTaskInd curTaskInd curRow pastRow curReward pastReward]
+foragers-own [hed eud hunger thirst social rep-score curValTask pastTaskInd curTaskInd curRow pastRow curReward pastReward pastListInd curListInd]
 ;; transMat corresponds to the transition probabilities:
 ;             move   eat   drink   social
 ;  food     
 ;  water    
 ;  foragers  
 ;  nothing   
-globals [transMat last-trans-probs taskList]
+globals [transList last-trans-probs taskList taskListShort]
 
 ; Clears everything
 to reset
   clear-all
   ask patches [set seed? false set water? false]
-  ;; Each transformation matrix corresponds to being either hed or eudaimonic unhappy, if we're totally happy we reproduce
-  set transMat matrix:from-row-list [[1 1 1 1 1 1 1][1 1 1 1 1 1 1][1 1 1 1 1 1 1][1 1 1 1 1 1 1]]
+  ;; Each transformation matrix corresponds to one state, currently whether the patch-here has food, water, other foragers, or nothing
+  
+  ; I really want this to be for hungry/not, thirsty/not, lonely/not, when you're not/not/not then you have access to the possibility of reproducing--which is has a very high reward.
+  let transMat matrix:from-row-list [[1 1 1 1 1 1][1 1 1 1 1 1][1 1 1 1 1 1][1 1 1 1 1 1]]
+  let transMatLong matrix:from-row-list [[1 1 1 1 1 1 1][1 1 1 1 1 1 1][1 1 1 1 1 1 1][1 1 1 1 1 1 1]]
+  ;                    hungry  thirsty  lonely   none      
+  set transList (list transMat transMat transMat transMatLong)
   ;; each row corresponds to one state: seed?, water?, social?, nothing
   ;; each column corresponds to eat, drink, soc, rep, move-food, move-water, move-social
-  set taskList (list (task eat) (task drink) (task socialize) (task reproduce) (task move-food) (task move-water) (task move-social))
+  set taskListShort (list (task eat) (task drink) (task socialize) (task move-food) (task move-water) (task move-social))
+  set taskList (list (task eat) (task drink) (task socialize) (task move-food) (task move-water) (task move-social) (task reproduce))
   reset-ticks
+end
+
+to reset-land
+  ask patches [set seed? false set water? false]
+  ask foragers [die]
+  setup
 end
 
 ; Initializes a few patches with food and water, adds some foragers, colors patches appropriately
@@ -53,8 +65,10 @@ to foragers-do
     forager-needs
     ; Save variables
     set pastReward curReward
+    set curReward -1
     set pastRow curRow
     set pastTaskInd curTaskInd
+    set pastListInd curListInd
     ; Get our current happiness
     set eud get-eud
     set hed get-hed
@@ -67,8 +81,16 @@ to foragers-do
 end
 
 to forager-update
-  let cur matrix:get-row transMat pastRow
-  matrix:set transMat pastRow curTaskInd ((1 - alpha) * (matrix:get transMat pastRow curTaskInd) + alpha * (pastReward + gamma * curReward))
+  if not on-hedeud [
+    ; We only update the q-table when we aren't using it to make decisions
+    let calpha alpha / (log (ticks + 50) 50)
+    let curMat item pastListInd transList
+    
+    let pastVal matrix:get (item pastListInd transList) pastRow pastTaskInd
+    let curVal matrix:get (item curListInd transList) curRow curTaskInd
+    matrix:set curMat pastRow pastTaskInd (pastVal + calpha * (pastReward + gamma * curVal - pastVal))
+    set transList replace-item pastListInd transList curMat
+  ]
 end
 
 
@@ -77,6 +99,16 @@ end
 ;
 ; Note: If on-hedeud (a switch in the interface) is not enabled, it just picks randomly from the possible actions
 to forager-action
+  let listOpts []
+  let hungry? false let thirsty? false let lonely? false
+  if hunger > 20 [set hungry? true set listOpts lput 0 listOpts]
+  if thirst > 20 [set thirsty? true set listOpts lput 1 listOpts]
+  if social > 20 [set lonely? true set listOpts lput 2 listOpts]
+  if not hungry? and not thirsty? and not lonely? [set listOpts [3]]
+  set curListInd one-of listOpts
+  
+  let curMat item curListInd transList
+  
   ; First we need to figure out what type of patch they are on
   let patchtypes []
   if [seed?] of patch-here [set patchtypes lput 0 patchtypes]
@@ -85,18 +117,26 @@ to forager-action
   if empty? patchtypes [set patchtypes [3]]
   ; Now we need to figure out our transition probabilities, we will pick randomly from the types for the patch we're on
   set curRow (one-of patchtypes)
-  let trans-probs matrix:get-row transMat curRow
- 
-  if not on-hedeud [ set trans-probs [1 1 1 1 1 1 1] set curRow one-of [0 1 2 3]]
-  ; No we have our transition probabilities, but we need to normalize them
-  let sumVal sum trans-probs + .001
-  set trans-probs (map / trans-probs (list sumVal sumVal sumVal sumVal sumVal sumVal sumVal))
+  let trans-probs matrix:get-row curMat curRow
+  
+  if not on-hedeud [set trans-probs n-values (length trans-probs) [1]]
+  
+  ; Now we have our transition probabilities, but we need to normalize them
+  set trans-probs normalize trans-probs
   set trans-probs cumSum trans-probs
 
   ; Now we can actually use these from zero to one
   let choice (random 100) / 100
   let counter 0
+  let cList ifelse-value (curListInd < 3) [taskListShort] [taskList]
   foreach trans-probs [ifelse (choice < ?) [run item counter taskList set curTaskInd counter stop] [set counter counter + 1]]
+  print "FAILURE"
+  error "FAILURE"
+end
+
+to-report normalize [alist]
+  let sumval sum alist
+  report map [? / sumval] alist
 end
 
 ; Called by 'foragers-do'
@@ -167,7 +207,7 @@ to reproduce
   set hunger hunger + 10
   set thirst thirst + 10
   set social social + 10
-  set curReward 1
+  set curReward 1000
   ]
   ; if you fail to reproduce, negative reward
 end
@@ -213,7 +253,7 @@ end
 ; Updates each patches color
 to patches-do
   if random-float 1 < seed-rate [if count patches with [not seed?] > 0 [ask one-of patches with [not seed?] [set seed? true]]]
-  if random-float 1 < seed-rate [if count patches with [seed?] > (count patches / 2)  [ask one-of patches with [seed?] [set seed? false]]]
+  if random-float 1 < .1 [if count patches with [seed?] > 0 [ask one-of patches with [seed?] [set seed? false] ask one-of patches with [not seed?] [set seed? true]]]
   patch-color
 end
 
@@ -441,7 +481,7 @@ seed-rate
 seed-rate
 0
 .5
-0.05
+0.1
 0.01
 1
 NIL
@@ -535,7 +575,7 @@ init-foragers
 init-foragers
 0
 100
-15
+10
 1
 1
 NIL
@@ -584,11 +624,28 @@ gamma
 gamma
 0
 1
-0.93
+0.9
 .01
 1
 NIL
 HORIZONTAL
+
+BUTTON
+76
+51
+164
+84
+NIL
+reset-land
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 # Forager Value Model
@@ -977,6 +1034,43 @@ NetLogo 5.0.4
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="hedonic vs eudaimonic" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count turtles</metric>
+    <enumeratedValueSet variable="on-hedeud">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="init-foragers">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="thirst-mult">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="init-water">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="alpha">
+      <value value="0.2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="soc-mult">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="seed-rate">
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="gamma">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="init-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-mult">
+      <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default

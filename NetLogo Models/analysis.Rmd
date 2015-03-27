@@ -1,0 +1,18 @@
+---
+title: "happy analysis"
+author: "Dan Birman"
+date: "Thursday, March 26, 2015"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot)
+library(tidyr)
+```
+
+```{r}
+data = read.csv('testingoutput_table.csv',skip=6)
+```
+
+

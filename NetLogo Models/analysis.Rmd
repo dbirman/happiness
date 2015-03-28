@@ -7,12 +7,50 @@ output: html_document
 
 ```{r}
 library(dplyr)
-library(ggplot)
+library(ggplot2)
 library(tidyr)
+library(lme4)
+library(effects)
+```
+
+Fix so that we have just the data we need
+
+```{r}
+data = read.csv('output_table.csv',skip=6) %>%
+  rename(run=X.run.number.,ticks=X.step.,hed=mean..hed..of.foragers,eud=mean..eud..of.foragers, hunger=mean..hunger..of.foragers,thirst=mean..thirst..of.foragers, social=mean..social..of.foragers) %>%
+  mutate(seedrateF=factor(seed.rate),runF=factor(run)) %>%
+  filter(ticks>5000)
 ```
 
 ```{r}
-data = read.csv('testingoutput_table.csv',skip=6)
+ggplot(data,aes(ticks,hed,color=runname)) +
+  geom_smooth(method="lm") +
+  facet_grid(.~seedrateF)
 ```
 
+Testing for effects
+
+hedonic
+```{r}
+rs = lm(data=data,hed~hunger+thirst+social+runname+seedrateF)
+summary(rs)
+plot(allEffects(rs))
+```
+
+```{r}
+rs = lm(data=data,eud~hunger+thirst+social+runname+seedrateF)
+summary(rs)
+plot(allEffects(rs))
+```
+
+```{r}
+rs_h = lmer(data=data,hed~hunger+thirst+social+runname+seedrateF+(1|run))
+rs_e = lmer(data=data,eud~hunger+thirst+social+runname+seedrateF+(1|run))
+summary(rs_h)
+summary(rs_e)
+```
+
+```{r}
+plot(allEffects(rs_h))
+```
 

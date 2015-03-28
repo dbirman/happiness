@@ -11,7 +11,7 @@ foragers-own [hed eud hunger thirst social rep-score curValTask pastTaskInd curT
 ;  water    
 ;  foragers  
 ;  nothing   
-globals [transList last-trans-probs taskList taskListShort]
+globals [transList last-trans-probs taskList taskListShort food-mult thirst-mult soc-mult runname]
 
 ; Clears everything
 to reset
@@ -28,6 +28,23 @@ to reset
   ;; each column corresponds to eat, drink, soc, rep, move-food, move-water, move-social
   set taskListShort (list (task eat) (task drink) (task socialize) (task move-food) (task move-water) (task move-social))
   set taskList (list (task eat) (task drink) (task socialize) (task move-food) (task move-water) (task move-social) (task reproduce))
+  
+  ; for behaviorspace runs
+  
+  ifelse runtype = 1 [
+    set runname "hedPref"
+    set food-mult 1
+    set thirst-mult 1
+    set soc-mult .25
+    ;; hedonic run
+  ] [
+    ;; runtype == 2
+    set runname "eudPref"
+    set food-mult .75
+    set thirst-mult .75
+    set soc-mult 1
+  ]
+  
   reset-ticks
 end
 
@@ -428,51 +445,6 @@ PENS
 "hmean" 1.0 0 -13840069 true "" ""
 
 SLIDER
-14
-130
-186
-163
-food-mult
-food-mult
-0
-1
-1
-.05
-1
-NIL
-HORIZONTAL
-
-SLIDER
-16
-176
-188
-209
-thirst-mult
-thirst-mult
-0
-1
-1
-.05
-1
-NIL
-HORIZONTAL
-
-SLIDER
-17
-219
-189
-252
-soc-mult
-soc-mult
-0
-1
-1
-.05
-1
-NIL
-HORIZONTAL
-
-SLIDER
 18
 268
 190
@@ -645,6 +617,16 @@ NIL
 NIL
 NIL
 NIL
+1
+
+CHOOSER
+22
+171
+160
+216
+runtype
+runtype
+1 2
 1
 
 @#$#@#$#@
@@ -1035,18 +1017,30 @@ NetLogo 5.0.4
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="hedonic vs eudaimonic" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
+  <experiment name="hedonic vs eudaimonic" repetitions="20" runMetricsEveryStep="true">
+    <setup>reset
+setup</setup>
     <go>go</go>
-    <metric>count turtles</metric>
+    <timeLimit steps="10000"/>
+    <metric>mean [hed] of foragers</metric>
+    <metric>mean [eud] of foragers</metric>
+    <metric>mean [hunger] of foragers</metric>
+    <metric>mean [thirst] of foragers</metric>
+    <metric>mean [social] of foragers</metric>
+    <metric>runname</metric>
+    <enumeratedValueSet variable="seed-rate">
+      <value value="0.03"/>
+      <value value="0.1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="runtype">
+      <value value="1"/>
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="on-hedeud">
       <value value="true"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="init-foragers">
       <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="thirst-mult">
-      <value value="1"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="init-water">
       <value value="3"/>
@@ -1054,20 +1048,11 @@ NetLogo 5.0.4
     <enumeratedValueSet variable="alpha">
       <value value="0.2"/>
     </enumeratedValueSet>
-    <enumeratedValueSet variable="soc-mult">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="seed-rate">
-      <value value="0.1"/>
-    </enumeratedValueSet>
     <enumeratedValueSet variable="gamma">
       <value value="0.9"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="init-food">
       <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="food-mult">
-      <value value="1"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>

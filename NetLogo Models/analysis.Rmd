@@ -19,11 +19,12 @@ Fix so that we have just the data we need
 data = read.csv('output_table.csv',skip=6) %>%
   rename(run=X.run.number.,ticks=X.step.,hed=mean..hed..of.foragers,eud=mean..eud..of.foragers, hunger=mean..hunger..of.foragers,thirst=mean..thirst..of.foragers, social=mean..social..of.foragers) %>%
   mutate(seedrateF=factor(seed.rate),runF=factor(run)) %>%
-  filter(ticks>5000)
+  filter(ticks>100)
 ```
 
 ```{r}
-ggplot(data,aes(ticks,hed,color=runname)) +
+ggplot(data,aes(ticks,eud,color=runname)) +
+  geom_point(position=position_jitter(width=.05,height=.05)) +
   geom_smooth(method="lm") +
   facet_grid(.~seedrateF)
 ```
@@ -44,8 +45,8 @@ plot(allEffects(rs))
 ```
 
 ```{r}
-rs_h = lmer(data=data,hed~hunger+thirst+social+runname+seedrateF+(1|run))
-rs_e = lmer(data=data,eud~hunger+thirst+social+runname+seedrateF+(1|run))
+rs_h = lmer(data=data,hed~hunger+thirst+social+runname+seedrateF+ticks+(1|run))
+rs_e = lmer(data=data,eud~hunger+thirst+social+runname+seedrateF+ticks+(1|run))
 summary(rs_h)
 summary(rs_e)
 ```
@@ -54,3 +55,6 @@ summary(rs_e)
 plot(allEffects(rs_h))
 ```
 
+```{r}
+plot(allEffects(rs_e))
+```

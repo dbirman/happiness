@@ -88,7 +88,8 @@ to foragers-do
     set pastListInd curListInd
     ; Get our current happiness
     set eud get-eud
-    set hed get-hed
+    ;; (note: hedonic updates automatically when we eat/drink/reproduce, we just drop it slightly here)
+    set hed hed - (hed * hed-modifier)
     ;; REPORTS: NORTH, EAST, SOUTH, WEST
     ; Eat/drink/socialize/reproduce
     forager-action
@@ -203,12 +204,12 @@ end
 
 ; Eat whatever is on this patch
 to eat
-  if [seed? = true] of patch-here [set curReward hunger * food-mult set hunger 0 ask patch-here [set seed? false]]
+  if [seed? = true] of patch-here [set hed hed + 1 set curReward hunger * food-mult set hunger 0 ask patch-here [set seed? false]]
 end
 
 ; Drink from the water on this patch
 to drink
-  if [water? = true] of patch-here [set curReward thirst * thirst-mult set thirst 0]
+  if [water? = true] of patch-here [set hed hed + 1 set curReward thirst * thirst-mult set thirst 0]
 end
 
 ; Socialize with other foragers here
@@ -225,6 +226,7 @@ to reproduce
   set thirst thirst + 10
   set social social + 10
   set curReward 1000
+  set hed hed + 1
   ]
   ; if you fail to reproduce, negative reward
 end
@@ -298,10 +300,10 @@ to-report get-eud
   report (300 - hunger - thirst - social) / 300
 end
 
-; Returns my hedonic happiness (did I recently eat, drink, or socialize)
-to-report get-hed
-  report (ifelse-value (hunger < 10) [1] [0]) + (ifelse-value (thirst < 10) [1] [0])
-end
+; Returns my hedonic happiness (did I recently eat, drink)
+;;to-report get-hed
+;;  report (ifelse-value (hunger < 10) [1] [0]) + (ifelse-value (thirst < 10) [1] [0])
+;;end
 
 ; Mapping function to map 'get-value' onto a list
 to-report get-value-list [plist]
@@ -435,7 +437,7 @@ NIL
 100.0
 true
 true
-"" "if count foragers > 0 [\nset-current-plot-pen \"hmean\"\nplot mean [hunger] of foragers\nset-current-plot-pen \"tmean\"\nplot mean [thirst] of foragers\nset-current-plot-pen \"smean\"\nplot mean [social] of foragers\nforeach [who] of foragers [\nset-current-plot-pen \"hunger\"\nplotxy ticks [hunger] of forager ?\nset-current-plot-pen \"thirst\"\nplotxy ticks [thirst] of forager ?\nset-current-plot-pen \"social\"\nplotxy ticks [social] of forager ?\n]\n]"
+"" "if count foragers > 0 [\nset-plot-x-range ticks - 90 ticks + 10\nset-current-plot-pen \"hmean\"\nplot mean [hunger] of foragers\nset-current-plot-pen \"tmean\"\nplot mean [thirst] of foragers\nset-current-plot-pen \"smean\"\nplot mean [social] of foragers\nforeach [who] of foragers [\nset-current-plot-pen \"hunger\"\nplotxy ticks [hunger] of forager ?\nset-current-plot-pen \"thirst\"\nplotxy ticks [thirst] of forager ?\nset-current-plot-pen \"social\"\nplotxy ticks [social] of forager ?\n]\n]"
 PENS
 "hunger" 1.0 2 -5509967 true "" ""
 "thirst" 1.0 2 -5516827 true "" ""
@@ -628,6 +630,36 @@ runtype
 runtype
 1 2
 1
+
+SLIDER
+20
+231
+192
+264
+hed-modifier
+hed-modifier
+0
+.2
+0.1
+.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+18
+448
+190
+481
+randseed
+randseed
+0
+100
+0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 # Forager Value Model
@@ -1017,11 +1049,13 @@ NetLogo 5.0.4
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="hedonic vs eudaimonic" repetitions="20" runMetricsEveryStep="true">
+  <experiment name="hedonic vs eudaimonic" repetitions="15" runMetricsEveryStep="true">
     <setup>reset
-setup</setup>
+setup
+repeat 10000 [go]
+reset-land</setup>
     <go>go</go>
-    <timeLimit steps="10000"/>
+    <timeLimit steps="500"/>
     <metric>mean [hed] of foragers</metric>
     <metric>mean [eud] of foragers</metric>
     <metric>mean [hunger] of foragers</metric>

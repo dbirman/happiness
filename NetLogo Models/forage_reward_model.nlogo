@@ -11,11 +11,12 @@ foragers-own [hed eud hunger thirst social rep-score curValTask pastTaskInd curT
 ;  water    
 ;  foragers  
 ;  nothing   
-globals [transList last-trans-probs taskList taskListShort food-mult thirst-mult soc-mult runname]
+globals [transList last-trans-probs taskList taskListShort food-mult thirst-mult soc-mult runname randHold randReset]
 
 ; Clears everything
 to reset
   clear-all
+  setBaseRand
   ask patches [set seed? false set water? false]
   ;; Each transformation matrix corresponds to one state, currently whether the patch-here has food, water, other foragers, or nothing
   
@@ -48,6 +49,29 @@ to reset
   reset-ticks
 end
 
+to storeRand
+  set randReset random 10000
+end
+
+to resetRandState
+  random-seed randReset
+end
+
+to setBaseRand
+  storeRand
+  random-seed randseed
+  set randHold random 10000
+  resetRandState
+end
+
+to withinRand [runThis]
+  storeRand
+  random-seed randHold
+  run runThis
+  set randHold random 10000
+  resetRandState
+end
+
 to reset-land
   ask patches [set seed? false set water? false]
   ask foragers [die]
@@ -56,16 +80,20 @@ end
 
 ; Initializes a few patches with food and water, adds some foragers, colors patches appropriately
 to setup
-  ask n-of init-food patches [set seed? true]
-  ask n-of init-water patches with [not seed?] [set water? true]
+  withinRand (task setupHelper)
   create-foragers init-foragers [setxy random-xcor random-ycor set hunger random 100 set thirst random 100 set social random 100 set curValTask (task foodVal)]
   patch-color
+end
+
+to setupHelper
+  ask n-of init-food patches [set seed? true]
+  ask n-of init-water patches with [not seed?] [set water? true]
 end
 
 ; The "tick" function. This moves the foragers around and then updates the patches.
 to go
   foragers-do
-  patches-do
+  withinRand (task patches-do)
   tick
 end
 
@@ -500,10 +528,10 @@ PENS
 "pen-1" 1.0 2 -3026479 true "" ""
 
 SWITCH
-83
-80
-199
-113
+40
+104
+156
+137
 on-hedeud
 on-hedeud
 0
@@ -1049,7 +1077,7 @@ NetLogo 5.0.4
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="hedonic vs eudaimonic" repetitions="15" runMetricsEveryStep="true">
+  <experiment name="hedonic vs eudaimonic" repetitions="5" runMetricsEveryStep="true">
     <setup>reset
 setup
 repeat 10000 [go]
@@ -1062,6 +1090,7 @@ reset-land</setup>
     <metric>mean [thirst] of foragers</metric>
     <metric>mean [social] of foragers</metric>
     <metric>runname</metric>
+    <metric>sum [rep-score] of foragers</metric>
     <enumeratedValueSet variable="seed-rate">
       <value value="0.03"/>
       <value value="0.1"/>
@@ -1069,6 +1098,18 @@ reset-land</setup>
     <enumeratedValueSet variable="runtype">
       <value value="1"/>
       <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="randseed">
+      <value value="1"/>
+      <value value="2"/>
+      <value value="3"/>
+      <value value="4"/>
+      <value value="5"/>
+      <value value="6"/>
+      <value value="7"/>
+      <value value="8"/>
+      <value value="9"/>
+      <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="on-hedeud">
       <value value="true"/>

@@ -23,9 +23,12 @@ data = read.csv('output_table.csv',skip=6) %>%
 ```
 
 ```{r}
-ggplot(data,aes(ticks,eud,color=runname)) +
+data %>%
+  sample_frac(.25,replace=F) %>%
+  ggplot(.,aes(ticks,eud,color=runname)) +
   geom_point(position=position_jitter(width=.05,height=.05)) +
-  geom_smooth(method="lm") +
+  #geom_line() +
+  geom_smooth(method="lm",formula=y~x+x^2) +
   facet_grid(.~seedrateF)
 ```
 
